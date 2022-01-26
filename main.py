@@ -1,6 +1,7 @@
 import os
 import discord
 from discord.ext import commands
+from discord.utils import find
 import requests
 import json
 import random
@@ -69,6 +70,12 @@ def delete_animelist(index):
 @client.event
 async def on_ready():
   print('We have logged in as {0.user}'.format(client))
+
+@client.event
+async def on_guild_join(guild):
+    general = find(lambda x: x.name == 'general',  guild.text_channels)
+    if general and general.permissions_for(guild.me).send_messages:
+        await general.send('I\'m back bitches!')
 
 @client.event
 async def on_message(message):
