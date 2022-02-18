@@ -7,11 +7,13 @@ import json
 import random
 from replit import db
 from keep_alive import keep_alive
-import youtube_dl
+from music_cog import music_cog
 #from datetime import datetime
 #import threading
 
 client = commands.Bot(command_prefix = '~', intents = discord.Intents.all())
+
+client.add_cog(music_cog(client))
 
 bad_words = ["gandu", "fuck", "bitch", "whore", "bokachoda", "banchod", "madarchod", "bc", "mc", "bantu", "randy", "dick", "fucking", "bastard", "bloody hell", "gudmarani", "chutiya", "asshole", "bhenchod", "fucker", "shit", "bullshit", "sala", "harami", "chodna", "lund", "chut", "gand", "bal", "baal", "khanki", "rendi", "dhur mara", "bara"]
 
@@ -85,8 +87,14 @@ async def on_message(message):
   
   msg = message.content
 
+  '''
+  if msg.startswith('~'):
+    embed=discord.Embed(title="", description="Bot temporarily disabled for maintenance!\nSome features may not work!", color=0xffffff)
+    await message.channel.send(embed=embed)
+  '''
+
   if msg.startswith('~help'):
-    await message.channel.send('General:\n~hello - Bot gives a gentle reply\n~panu - You should refrain yourself from trying this\n~quote - Gives a random anime quote\n~joke - Tells a random internet joke\n~news - "This feature is yet to be developed"\n\nAnime: (Some features are not fully developed yet)\n~anime - Recommends a random anime from its DB\n~addanime - Add your fav anime on the list\n~delanime - Deletes the mentioned anime\n~listanime - Gives the full list of animes in its DB\n\nProfanity:\n~respond - Turn it on or off as per your choice\n\nMusic: (The commands here are self-explanatory)\n~join\n~leave\n~play\n~pause\n~resume\n~stop\n\nMore features coming next year! Stay tuned!')
+    await message.channel.send('General:\n~hello - Bot gives a gentle reply\n~mention n - Pings everyone n times\n~clear n - Clears n above messages\n~panu - You should refrain yourself from trying this\n~quote - Gives a random anime quote\n~joke - Tells a random internet joke\n~news - "This feature is yet to be developed"\n\nAnime: (Some features are not fully developed yet)\n~anime - Recommends a random anime from its DB\n~addanime - Add your fav anime on the list\n~delanime - Deletes the mentioned anime\n~listanime - Gives the full list of animes in its DB\n\nProfanity:\n~respond - Turn it on or off as per your choice\n\nMusic: (The commands here are self-explanatory)\n~join\n~leave\n~play\n~pause\n~resume\n~stop\n\nMore features coming next year! Stay tuned!')
 
   if msg.startswith('~hello'):
     await message.channel.send('world')
@@ -159,79 +167,27 @@ async def on_message(message):
       await message.channel.send("Responding feature is off!")
 
 @client.command(pass_context=True)
-async def join(ctx):
-    if ctx.author.voice is None:
-      await ctx.send('Baka! Join a voice channel first!')
-      return
-    voice_channel = ctx.message.author.voice.channel
-    if ctx.voice_client is None:
-      await voice_channel.connect()
-    else:
-      await ctx.voice_client.move_to(voice_channel)
-    await ctx.send('IGI: I\'m going in')
-
-@client.command(pass_context=True)
-async def leave(ctx):
-  if ctx.voice_client is None:
-    await ctx.send('Baka! I am not in a voice channel!')
-  else:
-    await ctx.guild.voice_client.disconnect()
-    await ctx.send('Okay, waise bhi khas maza nhi aya.')
-
-@client.command(pass_context=True)
-async def play(ctx,url):
-  if ctx.author.voice is None:
-    await ctx.send('Baka! Join a voice channel first!')
-    return
-  voice_channel = ctx.message.author.voice.channel
-  if ctx.voice_client is None:
-    await voice_channel.connect()
-  ctx.guild.voice_client.stop()
-  FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
-  YDL_OPTIONS = {'format': 'bestaudio'}
-  vc = ctx.voice_client
-
-  with youtube_dl.YoutubeDL(YDL_OPTIONS) as ydl:
-    info = ydl.extract_info(url, download=False)
-    url2 = info['formats'][0]['url']
-    source = await discord.FFmpegOpusAudio.from_probe(url2, **FFMPEG_OPTIONS)
-    vc.play(source)
-  await ctx.send('Playing your song now.')
-
-@client.command(pass_context=True)
-async def pause(ctx):
-  if ctx.voice_client.is_playing():
-    ctx.voice_client.pause()
-    await ctx.send('Audio paused!')
-  else:
-    await ctx.send('Baka! I didn\'t even play anything!')
-
-@client.command(pass_context=True)
-async def resume(ctx):
-  if ctx.voice_client.is_paused():
-    ctx.voice_client.resume()
-    await ctx.send('Audio resumed!')
-  else:
-    await ctx.send('Baka! I didn\'t even pause anything!')
-
-@client.command(pass_context=True)
-async def stop(ctx):
-  if ctx.voice_client is None:
-    await ctx.send('Baka! I am not in a voice channel!')
-  else:
-    ctx.guild.voice_client.stop()
-    await ctx.send('Ye red light area hai!')
-
-@client.command(pass_context=True)
 async def mention(ctx):
   msg = ctx.message.content
   number = int(msg.split("~mention",1)[1])
   channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
+  count = 0
   for i in range(number):
     if channel:
       await channel.send(f'Huehuehue {ctx.message.guild.default_role}')
+      count+=1
     else:
       await ctx.send(f'Huehuehue {ctx.message.guild.default_role}')
+      count+=1
+    if count>=420:
+      await ctx.channel.purge(limit=420)
+      await ctx.send('420 messages have been purged💀')
+      count-=420
+
+@client.command(pass_context=True)
+async def clear(ctx, amount=69):
+    await ctx.channel.purge(limit=amount)
+    await ctx.send(f'{amount} messages have been purged💀')
 
 """
 async def checkTime(ctx):
