@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 #import validators
 #from validators import ValidationFailure
-import youtube_dl
+import yt_dlp as youtube_dl
 
 class music_cog(commands.Cog):
   def __init__(self, client):
@@ -13,8 +13,22 @@ class music_cog(commands.Cog):
 
     # 2d array containing [song, channel]
     self.music_queue = []
-    self.YDL_OPTIONS = {'format': 'bestaudio', 'noplaylist':'True'}
-    self.FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+    # self.YDL_OPTIONS = {'format': 'bestaudio', 'noplaylist':'True'}
+    self.YDL_OPTIONS = {
+        'format': 'bestaudio/best',
+        'noplaylist': True,
+        'quiet': True,
+        'no_warnings': True,
+        'default_search': 'ytsearch',
+        'source_address': '0.0.0.0',  # IPv4 fallback
+        'extract_flat': False,  # Ensure full extraction
+        'force_generic_extractor': False,  # Use specific extractor
+    }
+    # self.FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+    self.FFMPEG_OPTIONS = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn -b:a 128k',  # Disable video and set audio bitrate
+    }
 
     #self.vc = ""
 
@@ -28,15 +42,36 @@ class music_cog(commands.Cog):
     return result
   '''
 
+  # def search_yt(self, item):
+  #   with youtube_dl.YoutubeDL(self.YDL_OPTIONS) as ydl:
+  #     try: 
+  #       info = ydl.extract_info("ytsearch:%s" % item, download=False)['entries'][0]
+  #     except Exception as e:
+  #       print(f"Error extracting info: {e}")
+  #       return False
+
+  #   #await ctx.send(info['url'])
+  #   print(f"Audio source URL: {info['formats'][0]['url']}")  # Debug statement
+  #   return {'source': info['formats'][0]['url'], 'title': info['title']}
+
   def search_yt(self, item):
     with youtube_dl.YoutubeDL(self.YDL_OPTIONS) as ydl:
-      try: 
-        info = ydl.extract_info("ytsearch:%s" % item, download=False)['entries'][0]
-      except Exception: 
-        return False
+        try:
+            info = ydl.extract_info(f"ytsearch:{item}", download=False)
+            print(f"Info dictionary: {info}")  # Debug statement
+            if 'entries' in info:
+                info = info['entries'][0]
+            else:
+                return False
 
-    #await ctx.send(info['url'])
-    return {'source': info['formats'][0]['url'], 'title': info['title']}
+            if 'url' not in info:
+                print("No URL found in info dictionary")
+                return False
+
+            return {'source': info['url'], 'title': info['title']}
+        except Exception as e:
+            print(f"Error extracting info: {e}")
+            return False
 
   def play_next(self, ctx):
     vc=ctx.voice_client
@@ -75,6 +110,10 @@ class music_cog(commands.Cog):
       vc.play(discord.FFmpegOpusAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next(ctx))
     else:
       self.is_playing = False
+
+  @commands.command()
+  async def test(self, ctx):
+      await ctx.send("Cog is working!")
 
   @commands.command()
   async def join(self, ctx):
@@ -186,5 +225,5 @@ class music_cog(commands.Cog):
       ctx.guild.voice_client.stop()
       await ctx.send('Ye red light area hai!')
 
-def setup(client):
-  client.add_cog(music_cog(client))
+async def setup(client):
+  await client.add_cog(music_cog(client))

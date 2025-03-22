@@ -1,4 +1,5 @@
 import os
+import signal
 import discord
 from discord.ext import commands
 from discord.utils import find
@@ -7,13 +8,36 @@ import json
 import random
 from replit import db
 from keep_alive import keep_alive
-from music_cog import music_cog
+from music_cog import setup
 #from datetime import datetime
 #import threading
 
+# Kill previous instances of the bot
+try:
+    # Get the current process ID
+    current_pid = os.getpid()
+
+    # Find all Python processes
+    pids = [int(pid) for pid in os.popen("pgrep -f python").read().splitlines()]
+
+    # Kill all Python processes except the current one
+    for pid in pids:
+        if pid != current_pid:
+            os.kill(pid, signal.SIGTERM)
+except Exception as e:
+    print(f"Error killing previous instances: {e}")
+
+if not os.path.exists("/home/runner/.apt/usr/bin/ffmpeg"):
+  os.system("apt-get update")
+  os.system("apt-get install -y ffmpeg")
+
 client = commands.Bot(command_prefix = '~', intents = discord.Intents.all())
 
-client.add_cog(music_cog(client))
+# async def setup(client):
+#   await client.add_cog(music_cog(client))
+
+async def load_cogs():
+  await setup(client)
 
 bad_words = ["gandu", "fuck", "bitch", "whore", "bokachoda", "banchod", "madarchod", "bc", "mc", "bantu", "randy", "dick", "fucking", "bastard", "bloody hell", "gudmarani", "chutiya", "asshole", "bhenchod", "fucker", "shit", "bullshit", "sala", "harami", "chodna", "lund", "chut", "gand", "bal", "baal", "khanki", "rendi", "dhur mara", "bara"]
 
@@ -72,6 +96,7 @@ def delete_animelist(index):
 @client.event
 async def on_ready():
   print('We have logged in as {0.user}'.format(client))
+  await load_cogs()
 
 @client.event
 async def on_guild_join(guild):
@@ -180,13 +205,13 @@ async def mention(ctx):
       await ctx.send(f'Huehuehue {ctx.message.guild.default_role}')
       count+=1
     if count>=420:
-      await ctx.channel.purge(limit=420)
+      await channel.purge(limit=420)
       await ctx.send('420 messages have been purged💀')
       count-=420
 
 @client.command(pass_context=True)
 async def clear(ctx, amount=69):
-    await ctx.channel.purge(limit=amount)
+    await ctx.channel.purge(limit=amount+1)
     await ctx.send(f'{amount} messages have been purged💀')
 
 """
