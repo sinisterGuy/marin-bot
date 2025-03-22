@@ -35,6 +35,10 @@ if not os.path.exists("/home/runner/.apt/usr/bin/ffmpeg"):
 
 client = commands.Bot(command_prefix = '~', intents = discord.Intents.all())
 
+# Global variables to track the mention loop
+is_mentioning = False
+mention_task = None
+
 # Add a delay before restarting
 async def restart_bot():
   retry_delay = 60  # Start with 60 seconds
@@ -77,7 +81,9 @@ bad_words = ["gandu", "fuck", "bitch", "whore", "bokachoda", "banchod", "madarch
 
 starter_advices = ["You shouldn't abuse like this!", "Drink some water", "Are chill dude...hota hai", "Itna ghussa mat ho", "Itni gaali kyu de rha hai?", "Enough! Don't use such bad words.", "Baba maa ghore ei sikhiyeche?", "Stop abusing you sussy baka!", "Why are you cursing, my friend?"]
 
-sayonara = ["bye", "byee", "goodbye", "tata", "cya", "see you later"]
+sayonara = ["bye", "byee", "goodbye", "tata", "cya", "see you", "see ya", "night"]
+
+blush = ["beautiful", "love you", "like you", "cute", "pretty", "sexy", "handsome", "good job", "darun", "chumu", "proud of you"]
 
 
 if "respond" not in db.keys():
@@ -197,7 +203,10 @@ async def on_message(message):
       await message.channel.send(random.choice(starter_advices))
 
     if any(word in msg for word in sayonara):
-      await message.channel.send('Get lost dear')
+      await message.channel.send('Get lost😌')
+
+    if any(word in msg for word in blush):
+      await message.channel.send('Stop it I am blushing🤭🥰')
 
   if msg.startswith('~addanime'):
     anime = msg.split('~addanime ',1)[1]
@@ -228,23 +237,139 @@ async def on_message(message):
       db["respond"] = False
       await message.channel.send("Responding feature is off!")
 
+# @client.command(pass_context=True)
+# async def mention(ctx):
+#   global is_mentioning, mention_task
+#   if is_mentioning:
+#       await ctx.send("A mention loop is already running!")
+#       return
+    
+#   msg = ctx.message.content
+#   number = int(msg.split("~mention",1)[1])
+#   channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
+#   count = 0
+#   is_mentioning = True
+#   async def mention_loop():
+#     nonlocal count
+#     try:
+#       for i in range(number):
+#         if channel:
+#           await channel.send(f'Huehuehue {ctx.message.guild.default_role}')
+#           count+=1
+#         else:
+#           await ctx.send(f'Huehuehue {ctx.message.guild.default_role}')
+#           count+=1
+#         if count>=420:
+#           await channel.purge(limit=420)
+#           await ctx.send('420 messages have been purged💀')
+#           count-=420
+#         await asyncio.sleep(1)  # Add a delay to avoid rate limits
+#     finally:
+#       is_mentioning = False  # Reset the flag when the loop ends
+    
+#   # Start the mention loop as a background task
+#   mention_task = client.loop.create_task(mention_loop())
+
+# @client.command(name="abort", help="Aborts all pending tasks and resets the bot's state")
+# async def abort(ctx):
+#     global is_mentioning, mention_task
+
+#     # Stop the mention loop (if running)
+#     if is_mentioning:
+#         is_mentioning = False  # Signal the loop to stop
+#         if mention_task:
+#             mention_task.cancel()  # Cancel the task
+#         await ctx.send("Mention loop stopped.")
+
+#     # Stop music playback and leave the voice channel (if connected)
+#     if ctx.voice_client:
+#         ctx.voice_client.stop()
+#         await ctx.voice_client.disconnect()
+
+#     # Send a confirmation message
+#     embed = discord.Embed(
+#         title="🚨 Aborted!",
+#         description="All pending tasks have been stopped. The bot has been reset.",
+#         color=0xFF0000,
+#     )
+#     await ctx.send(embed=embed)\
+
 @client.command(pass_context=True)
 async def mention(ctx):
-  msg = ctx.message.content
-  number = int(msg.split("~mention",1)[1])
-  channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
-  count = 0
-  for i in range(number):
-    if channel:
-      await channel.send(f'Huehuehue {ctx.message.guild.default_role}')
-      count+=1
-    else:
-      await ctx.send(f'Huehuehue {ctx.message.guild.default_role}')
-      count+=1
-    if count>=420:
-      await channel.purge(limit=420)
-      await ctx.send('420 messages have been purged💀')
-      count-=420
+    global is_mentioning, mention_task
+
+    if is_mentioning:
+        await ctx.send("A mention loop is already running!")
+        return
+
+    msg = ctx.message.content
+    number = int(msg.split("~mention", 1)[1])
+    channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
+    count = 0
+
+    is_mentioning = True
+    print("Mention loop started. is_mentioning = True")
+
+    async def mention_loop():
+      nonlocal count
+      global is_mentioning  # Declare is_mentioning as global
+      try:
+          print("Mention loop started. Starting iterations...")
+          for i in range(number):
+              if not is_mentioning:
+                  print("Mention loop stopped by abort. Exiting...")
+                  break  # Exit the loop if abort is called
+
+              print(f"Sending mention {i + 1}/{number}")
+              if channel:
+                  await channel.send(f'Huehuehue {ctx.message.guild.default_role}')
+              else:
+                  await ctx.send(f'Huehuehue {ctx.message.guild.default_role}')
+              count += 1
+
+              if count >= 420:
+                  if channel:
+                      await channel.purge(limit=420)
+                  await ctx.send('420 messages have been purged💀')
+                  count -= 420
+
+              await asyncio.sleep(1)  # Add a delay to avoid rate limits
+      except asyncio.CancelledError:
+          print("Mention loop cancelled. Resetting is_mentioning...")
+      except Exception as e:
+          print(f"Error in mention loop: {e}")
+      finally:
+          is_mentioning = False  # Reset the flag when the loop ends
+          print("Mention loop ended. is_mentioning = False")
+
+    # Start the mention loop as a background task
+    mention_task = client.loop.create_task(mention_loop())
+    print("Mention task created and started.")
+
+@client.command(name="abort", help="Aborts all pending tasks and resets the bot's state")
+async def abort(ctx):
+    global is_mentioning, mention_task
+
+    # Stop the mention loop (if running)
+    if is_mentioning:
+        print("Aborting mention loop...")
+        is_mentioning = False  # Signal the loop to stop
+        if mention_task:
+            mention_task.cancel()  # Cancel the task
+        await ctx.send("Mention loop stopped.")
+
+    # Stop music playback and leave the voice channel (if connected)
+    if ctx.voice_client:
+        ctx.voice_client.stop()
+        await ctx.voice_client.disconnect()
+
+    # Send a confirmation message
+    embed = discord.Embed(
+        title="🚨 Aborted!",
+        description="All pending tasks have been stopped. The bot has been reset.",
+        color=0xFF0000,
+    )
+    await ctx.send(embed=embed)
 
 @client.command(pass_context=True)
 async def clear(ctx, amount=69):
