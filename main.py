@@ -1,3 +1,4 @@
+import asyncio
 import os
 import signal
 import discord
@@ -9,6 +10,7 @@ import random
 from replit import db
 from keep_alive import keep_alive
 from music_cog import setup
+from discord.ext.commands import BucketType
 #from datetime import datetime
 #import threading
 
@@ -33,8 +35,40 @@ if not os.path.exists("/home/runner/.apt/usr/bin/ffmpeg"):
 
 client = commands.Bot(command_prefix = '~', intents = discord.Intents.all())
 
+# Add a delay before restarting
+async def restart_bot():
+  retry_delay = 60  # Start with 60 seconds
+  while True:
+      print(f"Rate limited. Waiting for {retry_delay} seconds before retrying...")
+      await asyncio.sleep(retry_delay)
+      try:
+          print("Restarting bot...")
+          new_client = commands.Bot(command_prefix='~', intents=discord.Intents.all())
+          await new_client.start(os.environ['Huehuehue'])
+          break  # Exit the loop if restart is successful
+      except discord.errors.HTTPException as e:
+          if e.status == 429:
+              retry_delay *= 2  # Double the delay for exponential backoff
+              if retry_delay > 600:  # Cap the delay at 10 minutes
+                  retry_delay = 600
+          else:
+              raise e
+
 # async def setup(client):
 #   await client.add_cog(music_cog(client))
+
+# # Add a cooldown to the play command
+# @commands.cooldown(1, 5, BucketType.user)  # Allow 1 command per 5 seconds per user
+# @client.command()
+# async def play(ctx, *args):
+#     try:
+#         # Your play command logic
+#         await ctx.send("Playing song...")
+#     except discord.errors.HTTPException as e:
+#         if e.status == 429:  # Rate limit error
+#             retry_after = e.response.headers.get('Retry-After')  # Get the retry delay
+#             await asyncio.sleep(float(retry_after))  # Wait for the specified delay
+#             await ctx.send("Retrying after rate limit...")
 
 async def load_cogs():
   await setup(client)
@@ -50,10 +84,13 @@ if "respond" not in db.keys():
   db["respond"] = True
 
 def get_quote():
-  response=requests.get("https://animechan.vercel.app/api/random")
-  json_data = json.loads(response.text)
-  quote = json_data
-  return(quote)
+  try:
+      response = requests.get("https://animechan.vercel.app/api/random")
+      response.raise_for_status()  # Raise an error for bad status codes
+      return response.json()
+  except requests.exceptions.RequestException as e:
+      print(f"Error fetching quote: {e}")
+      return {"error": "Could not fetch quote."}
 
 def get_joke():
   response=requests.get("https://official-joke-api.appspot.com/random_joke")
@@ -129,11 +166,11 @@ async def on_message(message):
   
   if msg.startswith('~quote'):
     quote = get_quote()
-    await message.channel.send(quote)
+    await message.channel.send(quote.get("quote", "Could not fetch quote."))
 
   if msg.startswith('~joke'):
     joke = get_joke()
-    await message.channel.send(joke)
+    await message.channel.send(f"{joke.get('setup', 'Could not fetch joke.')}\n{joke.get('punchline', '')}")
     await message.channel.send('\n\nStill not as big of a joke as my creator\'s life!')
 
   if msg.startswith('~value'):
@@ -230,4 +267,11 @@ async def checkTime(ctx):
 """
 
 keep_alive()
-client.run(os.environ['Huehuehue'])
+# client.run(os.environ['Huehuehue'])
+# Run the bot
+try:
+    client.run(os.environ['Huehuehue'])
+except discord.errors.HTTPException as e:
+    if e.status == 429:  # Rate limit error
+        print("Rate limited. Waiting before retrying...")
+        asyncio.run(restart_bot())

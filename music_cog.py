@@ -1,3 +1,4 @@
+import asyncio
 import discord
 from discord.ext import commands
 #import validators
@@ -32,6 +33,11 @@ class music_cog(commands.Cog):
 
     #self.vc = ""
 
+  def format_duration(self, duration):
+    """Format duration (in seconds) into MM:SS format."""
+    minutes, seconds = divmod(duration, 60)
+    return f"{minutes}:{seconds:02}"
+    
   '''
   def is_url(self, url_string: str) -> bool:
     result = validators.url(url_string)
@@ -68,10 +74,35 @@ class music_cog(commands.Cog):
                 print("No URL found in info dictionary")
                 return False
 
-            return {'source': info['url'], 'title': info['title']}
+            # Extract metadata
+            title = info.get('title', 'Unknown Title')
+            artist = info.get('uploader', 'Unknown Artist')
+            duration = info.get('duration', 0)  # Duration in seconds
+            thumbnail = info.get('thumbnail', '')  # Thumbnail URL
+
+            return {
+                'source': info['url'],
+                'title': title,
+                'artist': artist,
+                'duration': duration,
+                'thumbnail': thumbnail,
+            }
+
+            #return {'source': info['url'], 'title': info['title']}
         except Exception as e:
             print(f"Error extracting info: {e}")
             return False
+
+  async def send_now_playing(self, ctx, song):
+    """Send an embed message for the currently playing song."""
+    embed = discord.Embed(
+        title="🎶 Now Playing",
+        description=f"**Title:** {song['title']}\n**Artist:** {song['artist']}\n**Duration:** {self.format_duration(song['duration'])}",
+        color=0x00ff00,
+    )
+    if song['thumbnail']:
+        embed.set_thumbnail(url=song['thumbnail'])
+    await ctx.send(embed=embed)
 
   def play_next(self, ctx):
     vc=ctx.voice_client
@@ -79,10 +110,14 @@ class music_cog(commands.Cog):
       self.is_playing = True
 
       #get the first url
+      song = self.music_queue[0][0]
       m_url = self.music_queue[0][0]['source']
 
       #remove the first element as you are currently playing it
       self.music_queue.pop(0)
+
+      # Send "Now Playing" message
+      asyncio.run_coroutine_threadsafe(self.send_now_playing(ctx, song), self.client.loop)
 
       vc.play(discord.FFmpegOpusAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next(ctx))
       #await ctx.send('Playing your song now!')
@@ -93,8 +128,14 @@ class music_cog(commands.Cog):
     vc=ctx.voice_client
     if len(self.music_queue) > 0:
       self.is_playing = True
-
+      song = self.music_queue[0][0]  # Define the song variable
       m_url = self.music_queue[0][0]['source']
+
+      # Debug: Print the audio source URL
+      print(f"Audio source URL: {m_url}")
+
+      # Display song info
+      await self.send_now_playing(ctx, song)
             
       #try to connect to voice channel if you are not already connected
 
@@ -110,6 +151,30 @@ class music_cog(commands.Cog):
       vc.play(discord.FFmpegOpusAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next(ctx))
     else:
       self.is_playing = False
+
+  @commands.command(aliases=["q"], help="Shows the current music queue")
+  async def queue(self, ctx):
+      if len(self.music_queue) == 0:
+          await ctx.send("The queue is empty!")
+          return
+
+      # Create an embed for the queue
+      embed = discord.Embed(
+          title="🎶 Music Queue",
+          description=f"**{len(self.music_queue)} songs in queue**",
+          color=0x00ff00,
+      )
+
+      # Add each song to the embed
+      for i, song_info in enumerate(self.music_queue):
+          song = song_info[0]
+          embed.add_field(
+              name=f"{i + 1}. {song['title']}",
+              value=f"**Artist:** {song['artist']}\n**Duration:** {self.format_duration(song['duration'])}",
+              inline=False,
+          )
+
+      await ctx.send(embed=embed)
 
   @commands.command()
   async def test(self, ctx):
@@ -194,8 +259,17 @@ class music_cog(commands.Cog):
       await ctx.send(embed=error)
     else:
               
-      await ctx.send("Song added to the queue")
+      #await ctx.send("Song added to the queue")
       #await ctx.send("Please be patient")
+      # Display song info
+      embed = discord.Embed(
+          title="🎶 Song Added to Queue",
+          description=f"**Title:** {song['title']}\n**Artist:** {song['artist']}\n**Duration:** {self.format_duration(song['duration'])}",
+          color=0x00ff00,
+      )
+      if song['thumbnail']:
+          embed.set_thumbnail(url=song['thumbnail'])
+      await ctx.send(embed=embed)
       self.music_queue.append([song, voice_channel])
                 
       if self.is_playing == False:
