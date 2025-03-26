@@ -6,7 +6,7 @@ authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-discord.py = "^2.3.2"
+discord-py = "^2.3.2"
 
 # these were available in legacy repls. might be helpful to add
 # glfw = "2.2.0"
