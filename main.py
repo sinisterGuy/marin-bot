@@ -2,7 +2,7 @@ import asyncio
 import os
 import signal
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.utils import find
 import requests
 import json
@@ -13,6 +13,19 @@ from music_cog import setup
 from discord.ext.commands import BucketType
 #from datetime import datetime
 #import threading
+
+# Dummy server and channel IDs
+DUMMY_SERVER_ID = 839549390338129980
+DUMMY_CHANNEL_ID = 1353597911153250356
+
+# List of random messages for keep-alive
+MESSAGES = [
+    "Bot is alive! 🚀",
+    "Still running! ⏳",
+    "Active and kicking! 💥",
+    "No sleep for me! 😴",
+    "Keeping the server alive! 🔥"
+]
 
 # Kill previous instances of the bot
 try:
@@ -38,6 +51,26 @@ client = commands.Bot(command_prefix = '~', intents = discord.Intents.all())
 # Global variables to track the mention loop
 is_mentioning = False
 mention_task = None
+
+@tasks.loop(minutes=5)  # Send a message every 5 minutes
+async def dummy_activity():
+    try:
+        # Fetch the dummy server and channel
+        dummy_server = client.get_guild(DUMMY_SERVER_ID)
+        if not dummy_server:
+            print("Dummy server not found!")
+            return
+
+        dummy_channel = dummy_server.get_channel(DUMMY_CHANNEL_ID)
+        if not dummy_channel:
+            print("Dummy channel not found!")
+            return
+
+        # Send a random message
+        message = random.choice(MESSAGES)
+        await dummy_channel.send(message)
+    except Exception as e:
+        print(f"Error in keep_alive task: {e}")
 
 # Add a delay before restarting
 async def restart_bot():
@@ -136,10 +169,16 @@ def delete_animelist(index):
     del animes[index]
   db["animes"] = animes
 
+# @client.event
+# async def on_ready():
+#   print('We have logged in as {0.user}'.format(client))
+#   await load_cogs()
+
 @client.event
 async def on_ready():
-  print('We have logged in as {0.user}'.format(client))
-  await load_cogs()
+    print('We have logged in as {0.user}'.format(client))
+    await load_cogs()
+    dummy_activity.start()  # Start the keep-alive task
 
 @client.event
 async def on_guild_join(guild):
