@@ -46,6 +46,13 @@ if not os.path.exists("/home/runner/.apt/usr/bin/ffmpeg"):
   os.system("apt-get update")
   os.system("apt-get install -y ffmpeg")
 
+# Get token with fallback
+TOKEN = os.getenv('DISCORD_TOKEN') or os.getenv('Huehuehue')  # Checks both
+if not TOKEN:
+    print("ERROR: No Discord token found in environment variables!")
+    print("Set either DISCORD_TOKEN or Huehuehue in Koyeb's variables")
+    exit(1)
+
 client = commands.Bot(command_prefix = '~', intents = discord.Intents.all())
 
 # Global variables to track the mention loop
