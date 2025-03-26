@@ -5,8 +5,8 @@ description = ""
 authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
-python = ">=3.8.0,<3.10"  # Now allows 3.9
-discord.py = "^2.3.2"  # Add this if missing
+python = "^3.9"
+discord.py = "^2.3.2"
 
 # these were available in legacy repls. might be helpful to add
 # glfw = "2.2.0"
@@ -26,7 +26,7 @@ discord.py = "^2.3.2"  # Add this if missing
 # numpy = "^1.21.5"
 # scipy = "1.7.3"
 validators = "^0.34.0"
-ffmpeg = "1.4"
+ffmpeg-python = "^0.2.0"
 
 [tool.pyright]
 # https://github.com/microsoft/pyright/blob/main/docs/configuration.md
