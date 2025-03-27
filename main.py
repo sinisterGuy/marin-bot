@@ -7,12 +7,26 @@ from discord.utils import find
 import requests
 import json
 import random
-from replit import db
+#from replit import db
+import sqlite3
+import json
 from keep_alive import keep_alive
 from music_cog import setup
 from discord.ext.commands import BucketType
 #from datetime import datetime
 #import threading
+
+# Initialize SQLite database
+os.makedirs("data", exist_ok=True)
+conn = sqlite3.connect('data/bot.db')
+db = conn.cursor()
+
+# Create tables if they don't exist
+db.execute('''CREATE TABLE IF NOT EXISTS config 
+             (key TEXT PRIMARY KEY, value TEXT)''')
+db.execute('''CREATE TABLE IF NOT EXISTS animes 
+             (id INTEGER PRIMARY KEY, name TEXT)''')
+conn.commit()
 
 # Dummy server and channel IDs
 DUMMY_SERVER_ID = 839549390338129980
@@ -125,9 +139,38 @@ sayonara = ["bye", "byee", "goodbye", "tata", "cya", "see you", "see ya", "night
 
 blush = ["beautiful", "love you", "like you", "cute", "pretty", "sexy", "handsome", "good job", "darun", "chumu", "proud of you"]
 
+# Database helper functions
+def get_config(key, default=None):
+    db.execute("SELECT value FROM config WHERE key=?", (key,))
+    result = db.fetchone()
+    return json.loads(result[0]) if result else default
 
-if "respond" not in db.keys():
-  db["respond"] = True
+def set_config(key, value):
+    db.execute("INSERT OR REPLACE INTO config VALUES (?, ?)", 
+              (key, json.dumps(value)))
+    conn.commit()
+
+def get_animes():
+    db.execute("SELECT name FROM animes")
+    return [row[0] for row in db.fetchall()]
+
+def add_anime(name):
+    db.execute("INSERT INTO animes (name) VALUES (?)", (name,))
+    conn.commit()
+
+def delete_anime(index):
+    db.execute("SELECT id FROM animes ORDER BY id LIMIT 1 OFFSET ?", (index,))
+    result = db.fetchone()
+    if result:
+        db.execute("DELETE FROM animes WHERE id=?", (result[0],))
+        conn.commit()
+
+# if "respond" not in db.keys():
+#   db["respond"] = True
+
+# Initialize respond setting
+if get_config("respond") is None:
+    set_config("respond", True)
 
 def get_quote():
   try:
@@ -163,18 +206,10 @@ def get_covid():
   return(covid)
 
 def update_animelist(new_anime):
-  if "animes" in db.keys():
-    animes = db["animes"]
-    animes.append(new_anime)
-    db["animes"] = animes
-  else:
-    db["animes"] = [new_anime]
+  add_anime(new_anime)
 
 def delete_animelist(index):
-  animes = db["animes"]
-  if len(animes) > index:
-    del animes[index]
-  db["animes"] = animes
+  delete_anime(index)
 
 # @client.event
 # async def on_ready():
@@ -237,14 +272,16 @@ async def on_message(message):
     covid = get_covid()
     await message.channel.send(covid)
 
-  options = []
-  if "animes" in db.keys():
-    options = db["animes"]
+  # options = []
+  # if "animes" in db.keys():
+  #   options = db["animes"]
+
+  options = get_animes()
 
   if msg.startswith('~anime'):
     await message.channel.send(random.choice(options))
 
-  if db["respond"]:
+  if get_config("respond", True):
     if any(word in msg for word in bad_words):
       await message.channel.send(random.choice(starter_advices))
 
@@ -259,28 +296,46 @@ async def on_message(message):
     update_animelist(anime)
     await message.channel.send('Wakatta Senpai')
 
+  # if msg.startswith('~delanime'):
+  #   animes = []
+  #   if "animes" in db.keys():
+  #     index = int(msg.split("~delanime",1)[1])
+  #     delete_animelist(index)
+  #     animes = db[animes]
+  #   await message.channel.send(animes)
+
   if msg.startswith('~delanime'):
-    animes = []
-    if "animes" in db.keys():
-      index = int(msg.split("~delanime",1)[1])
-      delete_animelist(index)
-      animes = db[animes]
-    await message.channel.send(animes)
+    try:
+        index = int(msg.split("~delanime",1)[1])
+        delete_anime(index)  # Uses the SQLite helper function
+        animes = get_animes()
+        await message.channel.send(animes)
+    except (IndexError, ValueError) as e:
+        await message.channel.send("Invalid format. Use: `~delanime [index]`")
+
+  # if msg.startswith('~listanime'):
+  #   animes = []
+  #   if "animes" in db.keys():
+  #     animes = db["animes"]
+  #   await message.channel.send(animes)
 
   if msg.startswith('~listanime'):
-    animes = []
-    if "animes" in db.keys():
-      animes = db["animes"]
-    await message.channel.send(animes)
+    animes = get_animes()
+    if not animes:
+        await message.channel.send("The anime list is empty!")
+    else:
+        # Format with indexes for easier deletion
+        formatted_list = "\n".join(f"{i}. {name}" for i, name in enumerate(animes))
+        await message.channel.send(f"Current anime list:\n{formatted_list}")
 
   if msg.startswith('~respond'):
     value = msg.split("~respond ",1)[1]
   
     if value.lower() == 'on':
-      db["respond"] = True
+      set_config("respond", True)
       await message.channel.send("Responding feature is on!")
     else:
-      db["respond"] = False
+      set_config("respond", False)
       await message.channel.send("Responding feature is off!")
 
 # @client.command(pass_context=True)
