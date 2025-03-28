@@ -6,17 +6,18 @@ RUN apt-get update && \
     apt-get install -y ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
+# Environment optimizations
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONOPTIMIZE=1  # Replaces -O flag
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# Persistent storage
+VOLUME /app/data
+
+# Single CMD instruction
 CMD ["python", "main.py"]
-
-VOLUME /app/data  # Stores SQLite file persistently
-
-# Set memory limits
-ENV PYTHONUNBUFFERED=1
-ENV PIP_NO_CACHE_DIR=1
-
-# Limit Python memory usage
-CMD ["python", "-O", "main.py"]  # -O for optimizations
