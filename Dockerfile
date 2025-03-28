@@ -13,3 +13,10 @@ COPY . .
 CMD ["python", "main.py"]
 
 VOLUME /app/data  # Stores SQLite file persistently
+
+# Set memory limits
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+
+# Limit Python memory usage
+CMD ["python", "-O", "main.py"]  # -O for optimizations

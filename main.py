@@ -41,20 +41,20 @@ MESSAGES = [
     "Keeping the server alive! 🔥"
 ]
 
-# Kill previous instances of the bot
-try:
-    # Get the current process ID
-    current_pid = os.getpid()
+# # Kill previous instances of the bot
+# try:
+#     # Get the current process ID
+#     current_pid = os.getpid()
 
-    # Find all Python processes
-    pids = [int(pid) for pid in os.popen("pgrep -f python").read().splitlines()]
+#     # Find all Python processes
+#     pids = [int(pid) for pid in os.popen("pgrep -f python").read().splitlines()]
 
-    # Kill all Python processes except the current one
-    for pid in pids:
-        if pid != current_pid:
-            os.kill(pid, signal.SIGTERM)
-except Exception as e:
-    print(f"Error killing previous instances: {e}")
+#     # Kill all Python processes except the current one
+#     for pid in pids:
+#         if pid != current_pid:
+#             os.kill(pid, signal.SIGTERM)
+# except Exception as e:
+#     print(f"Error killing previous instances: {e}")
 
 if not os.path.exists("/home/runner/.apt/usr/bin/ffmpeg"):
   os.system("apt-get update")

@@ -1,24 +1,12 @@
 from flask import Flask
-from threading import Thread
-import logging
+import os
 
-# Enable logging
-logging.basicConfig(level=logging.DEBUG)
-
-app = Flask('')
+app = Flask(__name__)
+port = int(os.getenv("PORT", 8000))  # Use Koyeb's expected port
 
 @app.route('/')
 def home():
-    return "Hello! I am alive!"
+    return "Bot Alive"
 
 def run():
-    try:
-        logging.info("Starting Flask server...")
-        app.run(host='0.0.0.0', port=8080)
-    except Exception as e:
-        logging.error(f"Flask server error: {e}")
-
-def keep_alive():
-    t = Thread(target=run)
-    t.daemon = True
-    t.start()
+    app.run(host='0.0.0.0', port=port)  # Critical for Koyeb
