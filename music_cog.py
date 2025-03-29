@@ -30,9 +30,9 @@ class music_cog(commands.Cog):
       }
       
       self.FFMPEG_OPTIONS = {
-          'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-          'options': '-vn'
-      }
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -thread_queue_size 1024',
+    'options': '-vn -filter:a "volume=0.8" -af "aresample=48000"'
+}
 
 
   def format_duration(self, duration):
@@ -49,6 +49,29 @@ class music_cog(commands.Cog):
 
     return result
   '''
+  async def ensure_voice(self, ctx):
+    """Robust voice connection handler with retries"""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            if ctx.voice_client is None:
+                if ctx.author.voice:
+                    vc = await ctx.author.voice.channel.connect(reconnect=True)
+                    return vc
+                await ctx.send("You're not in a voice channel!")
+                return None
+            
+            if not ctx.voice_client.is_connected():
+                await ctx.voice_client.move_to(ctx.author.voice.channel)
+            
+            return ctx.voice_client
+            
+        except discord.errors.ConnectionClosed as e:
+            wait = min(2 ** (attempt + 1), 10)  # Exponential backoff, max 10 sec
+            await asyncio.sleep(wait)
+            if attempt == max_retries - 1:
+                await ctx.send("❌ Failed to connect to voice after multiple attempts")
+                raise
 
   async def search_yt(self, item):
         """Bulletproof search that never triggers bot detection"""
@@ -125,32 +148,30 @@ class music_cog(commands.Cog):
       self.is_playing = False
 
   async def play_music(self, ctx):
-    vc=ctx.voice_client
-    if len(self.music_queue) > 0:
-      self.is_playing = True
-      song = self.music_queue[0][0]  # Define the song variable
-      m_url = self.music_queue[0][0]['source']
+    try:
+        vc = await self.ensure_voice(ctx)
+        if not vc or len(self.music_queue) == 0:
+            return
 
-      # Debug: Print the audio source URL
-      print(f"Audio source URL: {m_url}")
-
-      # Display song info
-      await self.send_now_playing(ctx, song)
-            
-      #try to connect to voice channel if you are not already connected
-
-      if vc == "" or vc == None:
-        vc = await self.music_queue[0][1].connect()
-      else:
-        await vc.move_to(self.music_queue[0][1])
-            
-      print(self.music_queue)
-      #remove the first element as you are currently playing it
-      self.music_queue.pop(0)
-
-      vc.play(discord.FFmpegOpusAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next(ctx))
-    else:
-      self.is_playing = False
+        self.is_playing = True
+        song = self.music_queue.pop(0)[0]
+        
+        # Use from_probe for better format detection
+        source = await discord.FFmpegOpusAudio.from_probe(
+            song['source'],
+            **self.FFMPEG_OPTIONS
+        )
+        
+        def after_play(error):
+            coro = self.play_next(ctx, error)
+            asyncio.run_coroutine_threadsafe(coro, self.client.loop)
+        
+        vc.play(source, after=after_play)
+        await self.send_now_playing(ctx, song)
+        
+    except Exception as e:
+        self.is_playing = False
+        await ctx.send(f"⚠ Playback error: {str(e)}")
 
   @commands.command(aliases=["q"], help="Shows the current music queue")
   async def queue(self, ctx):
