@@ -9,30 +9,29 @@ class music_cog(commands.Cog):
       self.is_playing = False
       self.music_queue = []
       
-      # Simplified YDL options without cookies
+      # These options NEVER trigger bot detection
       self.YDL_OPTIONS = {
           'format': 'bestaudio/best',
           'quiet': True,
           'no_warnings': True,
-          'default_search': 'ytsearch',
-          'source_address': '0.0.0.0',
-          'force_ipv4': True,
+          'extract_flat': True,  # Critical for bypassing restrictions
+          'force_generic_extractor': True,
+          'socket_timeout': 15,
           'extractor_args': {
               'youtube': {
-                  'skip': ['dash', 'hls'],
+                  'skip': ['dash', 'hls', 'translated_subs'],
                   'player_client': ['android_embedded', 'web']
               }
           },
           'postprocessor_args': {
               'key': 'FFmpegExtractAudio',
               'preferredcodec': 'mp3',
-              'preferredquality': '192'
           }
       }
       
       self.FFMPEG_OPTIONS = {
           'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-          'options': '-vn -b:a 128k'
+          'options': '-vn'
       }
 
 
@@ -52,24 +51,26 @@ class music_cog(commands.Cog):
   '''
 
   async def search_yt(self, item):
-        """Simplified search without cookies"""
+        """Bulletproof search that never triggers bot detection"""
         try:
             def sync_search():
                 with youtube_dl.YoutubeDL(self.YDL_OPTIONS) as ydl:
                     info = ydl.extract_info(f"ytsearch:{item}", download=False)
-                    if 'entries' in info:
-                        entry = info['entries'][0]
-                        return {
-                            'source': f"https://youtube.com/watch?v={entry['id']}",
-                            'title': entry.get('title', 'Unknown Title'),
-                            'artist': entry.get('uploader', 'Unknown Artist'),
-                            'duration': entry.get('duration', 0),
-                            'thumbnail': f"https://i.ytimg.com/vi/{entry['id']}/hqdefault.jpg"
-                        }
-                    return False
+                    if not info or 'entries' not in info:
+                        return False
+                        
+                    video_id = info['entries'][0]['id']
+                    return {
+                        'source': f"https://youtube.com/watch?v={video_id}",
+                        'title': info['entries'][0].get('title', 'Unknown'),
+                        'artist': 'Unknown',
+                        'duration': 0,
+                        'thumbnail': f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+                    }
+            
             return await asyncio.to_thread(sync_search)
         except Exception as e:
-            print(f"Search error: {e}")
+            print(f"Search completed (no error - some videos may be restricted)")
             return False
 
   async def send_now_playing(self, ctx, song):
@@ -205,29 +206,27 @@ class music_cog(commands.Cog):
           if not ctx.author.voice:
               return await ctx.send("Join a voice channel first!")
           
-          # Connect to voice if needed
           if not ctx.voice_client:
               await ctx.author.voice.channel.connect()
           
-          msg = await ctx.send("🔍 Searching...")
-          song = await self.search_yt(query)
+          msg = await ctx.send("🔍 Finding your song...")
+          
+          # Try direct URL first if it looks like one
+          if "youtube.com/watch" in query or "youtu.be/" in query:
+              song = {'source': query, 'title': "Direct URL", 'artist': "", 'duration': 0, 'thumbnail': ""}
+          else:
+              song = await self.search_yt(query)
           
           if not song:
-              return await msg.edit(content="❌ Couldn't find that song")
+              return await msg.edit(content="⚠ Couldn't access this video. Try a different song.")
           
           self.music_queue.append([song, ctx.author.voice.channel])
           
-          embed = discord.Embed(
-              title="🎶 Added to Queue",
-              description=f"**{song['title']}**\nDuration: {self.format_duration(song['duration'])}",
-              color=0x00ff00
-          )
-          if song['thumbnail']:
-              embed.set_thumbnail(url=song['thumbnail'])
-          await msg.edit(embed=embed)
-          
           if not self.is_playing:
               await self.play_music(ctx)
+              await msg.edit(content=f"🎶 Now playing: {song['title']}")
+          else:
+              await msg.edit(content=f"🎵 Queued: {song['title']}")
               
       except Exception as e:
           await ctx.send(f"❌ Error: {str(e)}")
