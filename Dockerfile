@@ -1,23 +1,23 @@
 FROM python:3.9-slim
 WORKDIR /app
 
-# Install system dependencies
+# Install system deps
 RUN apt-get update && \
-    apt-get install -y ffmpeg && \
+    apt-get install -y ffmpeg build-essential && \
     rm -rf /var/lib/apt/lists/*
 
-# Environment optimizations
+# Environment config
 ENV PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PYTHONOPTIMIZE=1  # Replaces -O flag
+    PIP_NO_CACHE_DIR=off \
+    PYTHONDONTWRITEBYTECODE=1
 
+# Install Python deps
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --user -r requirements.txt
 
+# Copy app
 COPY . .
 
-# Persistent storage
+# Runtime config
 VOLUME /app/data
-
-# Single CMD instruction
 CMD ["python", "main.py"]
