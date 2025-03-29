@@ -9,31 +9,32 @@ class music_cog(commands.Cog):
       self.is_playing = False
       self.music_queue = []
       
-      # These options NEVER trigger bot detection
+      # Ultra-reliable YTDL options
       self.YDL_OPTIONS = {
           'format': 'bestaudio/best',
           'quiet': True,
           'no_warnings': True,
-          'extract_flat': True,  # Critical for bypassing restrictions
+          'extract_flat': True,
           'force_generic_extractor': True,
           'socket_timeout': 15,
           'extractor_args': {
               'youtube': {
-                  'skip': ['dash', 'hls', 'translated_subs'],
-                  'player_client': ['android_embedded', 'web']
+                  'skip': ['dash', 'hls'],
+                  'player_client': ['android_embedded']
               }
           },
           'postprocessor_args': {
               'key': 'FFmpegExtractAudio',
               'preferredcodec': 'mp3',
+              'preferredquality': '192'
           }
       }
       
+      # Optimized FFmpeg options
       self.FFMPEG_OPTIONS = {
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -thread_queue_size 1024',
-    'options': '-vn -filter:a "volume=0.8" -af "aresample=48000"'
-}
-
+          'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -thread_queue_size 1024',
+          'options': '-vn -filter:a "volume=0.8" -ac 2 -ar 48000'
+      }
 
   def format_duration(self, duration):
     """Format duration (in seconds) into MM:SS format."""
@@ -50,14 +51,15 @@ class music_cog(commands.Cog):
     return result
   '''
   async def ensure_voice(self, ctx):
-    """Robust voice connection handler with retries"""
-    max_retries = 3
-    for attempt in range(max_retries):
+        """Robust voice connection with timeout handling"""
         try:
             if ctx.voice_client is None:
                 if ctx.author.voice:
-                    vc = await ctx.author.voice.channel.connect(reconnect=True)
-                    return vc
+                    return await ctx.author.voice.channel.connect(
+                        timeout=30,
+                        reconnect=True,
+                        self_deaf=True
+                    )
                 await ctx.send("You're not in a voice channel!")
                 return None
             
@@ -66,34 +68,48 @@ class music_cog(commands.Cog):
             
             return ctx.voice_client
             
-        except discord.errors.ConnectionClosed as e:
-            wait = min(2 ** (attempt + 1), 10)  # Exponential backoff, max 10 sec
-            await asyncio.sleep(wait)
-            if attempt == max_retries - 1:
-                await ctx.send("❌ Failed to connect to voice after multiple attempts")
-                raise
+        except asyncio.TimeoutError:
+            await ctx.send("⚠ Voice connection timed out. Try again.")
+            return None
+        except Exception as e:
+            await ctx.send(f"⚠ Connection error: {str(e)}")
+            return None
+
+  async def create_audio_source(self, url):
+      """Create audio source with multiple fallbacks"""
+      try:
+          # First try with probe
+          return await discord.FFmpegOpusAudio.from_probe(
+              url,
+              **self.FFMPEG_OPTIONS
+          )
+      except:
+          # Fallback to direct OpusAudio if probe fails
+          return discord.FFmpegOpusAudio(
+              url,
+              **self.FFMPEG_OPTIONS
+          )
 
   async def search_yt(self, item):
-        """Bulletproof search that never triggers bot detection"""
+        """Reliable YouTube search with multiple fallbacks"""
         try:
             def sync_search():
                 with youtube_dl.YoutubeDL(self.YDL_OPTIONS) as ydl:
                     info = ydl.extract_info(f"ytsearch:{item}", download=False)
                     if not info or 'entries' not in info:
                         return False
-                        
-                    video_id = info['entries'][0]['id']
+                    entry = info['entries'][0]
                     return {
-                        'source': f"https://youtube.com/watch?v={video_id}",
-                        'title': info['entries'][0].get('title', 'Unknown'),
-                        'artist': 'Unknown',
-                        'duration': 0,
-                        'thumbnail': f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+                        'source': f"https://youtube.com/watch?v={entry['id']}",
+                        'title': entry.get('title', 'Unknown'),
+                        'artist': entry.get('uploader', 'Unknown'),
+                        'duration': entry.get('duration', 0),
+                        'thumbnail': f"https://i.ytimg.com/vi/{entry['id']}/hqdefault.jpg"
                     }
             
             return await asyncio.to_thread(sync_search)
         except Exception as e:
-            print(f"Search completed (no error - some videos may be restricted)")
+            print(f"Search error: {e}")
             return False
 
   async def send_now_playing(self, ctx, song):
@@ -148,30 +164,27 @@ class music_cog(commands.Cog):
       self.is_playing = False
 
   async def play_music(self, ctx):
-    try:
-        vc = await self.ensure_voice(ctx)
-        if not vc or len(self.music_queue) == 0:
-            return
+        try:
+            vc = await self.ensure_voice(ctx)
+            if not vc or len(self.music_queue) == 0:
+                return
 
-        self.is_playing = True
-        song = self.music_queue.pop(0)[0]
-        
-        # Use from_probe for better format detection
-        source = await discord.FFmpegOpusAudio.from_probe(
-            song['source'],
-            **self.FFMPEG_OPTIONS
-        )
-        
-        def after_play(error):
-            coro = self.play_next(ctx, error)
-            asyncio.run_coroutine_threadsafe(coro, self.client.loop)
-        
-        vc.play(source, after=after_play)
-        await self.send_now_playing(ctx, song)
-        
-    except Exception as e:
-        self.is_playing = False
-        await ctx.send(f"⚠ Playback error: {str(e)}")
+            self.is_playing = True
+            song = self.music_queue.pop(0)[0]
+            
+            source = await self.create_audio_source(song['source'])
+            
+            def after_play(error):
+                coro = self.play_next(ctx, error)
+                asyncio.run_coroutine_threadsafe(coro, self.client.loop)
+            
+            vc.play(source, after=after_play)
+            await self.send_now_playing(ctx, song)
+            
+        except Exception as e:
+            self.is_playing = False
+            await ctx.send(f"⚠ Playback error: {str(e)}")
+            print(f"Playback error: {e}")
 
   @commands.command(aliases=["q"], help="Shows the current music queue")
   async def queue(self, ctx):
@@ -222,35 +235,36 @@ class music_cog(commands.Cog):
       await ctx.send('Okay, waise bhi khas maza nhi aya.')
 
   @commands.command(aliases=["p"])
-  async def play(self, ctx, *, query):
-      try:
-          if not ctx.author.voice:
-              return await ctx.send("Join a voice channel first!")
-          
-          if not ctx.voice_client:
-              await ctx.author.voice.channel.connect()
-          
-          msg = await ctx.send("🔍 Finding your song...")
-          
-          # Try direct URL first if it looks like one
-          if "youtube.com/watch" in query or "youtu.be/" in query:
-              song = {'source': query, 'title': "Direct URL", 'artist': "", 'duration': 0, 'thumbnail': ""}
-          else:
-              song = await self.search_yt(query)
-          
-          if not song:
-              return await msg.edit(content="⚠ Couldn't access this video. Try a different song.")
-          
-          self.music_queue.append([song, ctx.author.voice.channel])
-          
-          if not self.is_playing:
-              await self.play_music(ctx)
-              await msg.edit(content=f"🎶 Now playing: {song['title']}")
-          else:
-              await msg.edit(content=f"🎵 Queued: {song['title']}")
-              
-      except Exception as e:
-          await ctx.send(f"❌ Error: {str(e)}")
+    async def play(self, ctx, *, query):
+        try:
+            # Initial checks
+            if not ctx.author.voice:
+                return await ctx.send("Join a voice channel first!")
+            
+            # Connection handling
+            msg = await ctx.send("🔍 Preparing your song...")
+            vc = await self.ensure_voice(ctx)
+            if not vc:
+                return
+                
+            # Search or direct URL
+            if "youtube.com/watch" in query or "youtu.be/" in query:
+                song = {'source': query, 'title': "Direct URL", 'artist': "", 'duration': 0, 'thumbnail': ""}
+            else:
+                song = await self.search_yt(query)
+                if not song:
+                    return await msg.edit(content="⚠ Couldn't access this video")
+            
+            # Queue management
+            self.music_queue.append([song, ctx.author.voice.channel])
+            await msg.edit(content=f"🎵 Added to queue: {song['title']}")
+            
+            if not self.is_playing:
+                await self.play_music(ctx)
+                
+        except Exception as e:
+            await ctx.send(f"❌ Error: {str(e)}")
+            print(f"Command error: {e}")
 
   @commands.command()
   async def pause(self, ctx):
