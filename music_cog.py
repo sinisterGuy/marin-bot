@@ -25,11 +25,13 @@ class music_cog(commands.Cog):
         'source_address': '0.0.0.0',  # IPv4 fallback
         'extract_flat': False,  # Ensure full extraction
         'force_generic_extractor': False,  # Use specific extractor
+        'socket_timeout': 10,
+        'extractor_args': {'youtube': {'skip': ['dash', 'hls']}}
     }
     # self.FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
     self.FFMPEG_OPTIONS = {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-        'options': '-vn -b:a 128k',  # Disable video and set audio bitrate
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -thread_queue_size 1024',
+    'options': '-vn -b:a 128k -filter:a "volume=0.8" -af "apad=pad_dur=2"',
     }
 
     #self.vc = ""
@@ -64,7 +66,11 @@ class music_cog(commands.Cog):
   def search_yt(self, item):
     with youtube_dl.YoutubeDL(self.YDL_OPTIONS) as ydl:
         try:
-            info = ydl.extract_info(f"ytsearch:{item}", download=False)
+            #info = ydl.extract_info(f"ytsearch:{item}", download=False)
+            def sync_search():
+                with youtube_dl.YoutubeDL(self.YDL_OPTIONS) as ydl:
+                  return ydl.extract_info(f"ytsearch:{item}", download=False)
+              info = await asyncio.to_thread(sync_search) 
             print(f"Info dictionary: {info}")  # Debug statement
             if 'entries' in info:
                 info = info['entries'][0]
@@ -105,8 +111,10 @@ class music_cog(commands.Cog):
         embed.set_thumbnail(url=song['thumbnail'])
     await ctx.send(embed=embed)
 
-  def play_next(self, ctx):
-    vc=ctx.voice_client
+  def play_next(self, ctx, error=None):
+    if error:
+      print(f"Player error: {error}")
+    #vc=ctx.voice_client
     if len(self.music_queue) > 0:
       self.is_playing = True
 
@@ -120,8 +128,26 @@ class music_cog(commands.Cog):
       # Send "Now Playing" message
       asyncio.run_coroutine_threadsafe(self.send_now_playing(ctx, song), self.client.loop)
 
-      vc.play(discord.FFmpegOpusAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next(ctx))
+      vc=ctx.voice_client
+
+      #vc.play(discord.FFmpegOpusAudio(m_url, **self.FFMPEG_OPTIONS), after=lambda e: self.play_next(ctx))
       #await ctx.send('Playing your song now!')
+      # Create audio source with error handling
+      def create_source():
+          try:
+              return discord.FFmpegOpusAudio(
+                  m_url,
+                  **self.FFMPEG_OPTIONS
+              )
+          except Exception as e:
+              print(f"Error creating audio source: {e}")
+              raise
+      
+      source = await asyncio.to_thread(create_source)
+
+      # Play with proper error handling
+      vc.play(source,after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx, e),self.client.loop))
+
     else:
       self.is_playing = False
 
@@ -253,7 +279,7 @@ class music_cog(commands.Cog):
     embed=discord.Embed(title="", description="Audio is currectly downloading this may take a minute\nGetting everything ready, playing audio soon...", color=0xffffff)
     embed.set_footer(text="Ohm Audio", icon_url="https://media.discordapp.net/attachments/847649142834593803/881308944159617104/Ohm.png")
     await ctx.send(embed=embed)
-    song = self.search_yt(query)
+    song = await self.search_yt(query) #async call
     if type(song) == type(True):
       error=discord.Embed(title="Error", description="Could not download the song.\nIncorrect format try another keyword.\nThis could be due to playlist or a livestream format.", color=0xFF0000)
       error.set_footer(text="Ohm Audio", icon_url="https://media.discordapp.net/attachments/847649142834593803/881308944159617104/Ohm.png")
