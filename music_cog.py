@@ -23,10 +23,17 @@ class music_cog(commands.Cog):
         'no_warnings': True,
         'default_search': 'ytsearch',
         'source_address': '0.0.0.0',  # IPv4 fallback
+        'force_ipv4': True,
+        'geo_bypass': True,
+        'extractor_retries': 3,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
         'extract_flat': False,  # Ensure full extraction
         'force_generic_extractor': False,  # Use specific extractor
         'socket_timeout': 10,
-        'extractor_args': {'youtube': {'skip': ['dash', 'hls']}}
+        'extractor_args': {'youtube': {'skip': ['dash', 'hls'],'player_client': ['android']}}
     }
     # self.FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
     self.FFMPEG_OPTIONS = {
