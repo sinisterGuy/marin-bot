@@ -4,36 +4,36 @@ from discord.ext import commands
 import yt_dlp as youtube_dl
 
 class music_cog(commands.Cog):
-    def __init__(self, client):
-        self.client = client
-        self.is_playing = False
-        self.music_queue = []
-        
-        # Simplified YDL options without cookies
-        self.YDL_OPTIONS = {
-            'format': 'bestaudio/best',
-            'quiet': True,
-            'no_warnings': True,
-            'default_search': 'ytsearch',
-            'source_address': '0.0.0.0',
-            'force_ipv4': True,
-            'extractor_args': {
-                'youtube': {
-                    'skip': ['dash', 'hls'],
-                    'player_client': ['android_embedded', 'web']
-                }
-            },
-            'postprocessor_args': {
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192'
-            }
-        }
-        
-        self.FFMPEG_OPTIONS = {
-            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-            'options': '-vn -b:a 128k'
-        }
+  def __init__(self, client):
+      self.client = client
+      self.is_playing = False
+      self.music_queue = []
+      
+      # Simplified YDL options without cookies
+      self.YDL_OPTIONS = {
+          'format': 'bestaudio/best',
+          'quiet': True,
+          'no_warnings': True,
+          'default_search': 'ytsearch',
+          'source_address': '0.0.0.0',
+          'force_ipv4': True,
+          'extractor_args': {
+              'youtube': {
+                  'skip': ['dash', 'hls'],
+                  'player_client': ['android_embedded', 'web']
+              }
+          },
+          'postprocessor_args': {
+              'key': 'FFmpegExtractAudio',
+              'preferredcodec': 'mp3',
+              'preferredquality': '192'
+          }
+      }
+      
+      self.FFMPEG_OPTIONS = {
+          'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+          'options': '-vn -b:a 128k'
+      }
 
 
   def format_duration(self, duration):
@@ -200,37 +200,37 @@ class music_cog(commands.Cog):
       await ctx.send('Okay, waise bhi khas maza nhi aya.')
 
   @commands.command(aliases=["p"])
-    async def play(self, ctx, *, query):
-        try:
-            if not ctx.author.voice:
-                return await ctx.send("Join a voice channel first!")
-            
-            # Connect to voice if needed
-            if not ctx.voice_client:
-                await ctx.author.voice.channel.connect()
-            
-            msg = await ctx.send("🔍 Searching...")
-            song = await self.search_yt(query)
-            
-            if not song:
-                return await msg.edit(content="❌ Couldn't find that song")
-            
-            self.music_queue.append([song, ctx.author.voice.channel])
-            
-            embed = discord.Embed(
-                title="🎶 Added to Queue",
-                description=f"**{song['title']}**\nDuration: {self.format_duration(song['duration'])}",
-                color=0x00ff00
-            )
-            if song['thumbnail']:
-                embed.set_thumbnail(url=song['thumbnail'])
-            await msg.edit(embed=embed)
-            
-            if not self.is_playing:
-                await self.play_music(ctx)
-                
-        except Exception as e:
-            await ctx.send(f"❌ Error: {str(e)}")
+  async def play(self, ctx, *, query):
+      try:
+          if not ctx.author.voice:
+              return await ctx.send("Join a voice channel first!")
+          
+          # Connect to voice if needed
+          if not ctx.voice_client:
+              await ctx.author.voice.channel.connect()
+          
+          msg = await ctx.send("🔍 Searching...")
+          song = await self.search_yt(query)
+          
+          if not song:
+              return await msg.edit(content="❌ Couldn't find that song")
+          
+          self.music_queue.append([song, ctx.author.voice.channel])
+          
+          embed = discord.Embed(
+              title="🎶 Added to Queue",
+              description=f"**{song['title']}**\nDuration: {self.format_duration(song['duration'])}",
+              color=0x00ff00
+          )
+          if song['thumbnail']:
+              embed.set_thumbnail(url=song['thumbnail'])
+          await msg.edit(embed=embed)
+          
+          if not self.is_playing:
+              await self.play_music(ctx)
+              
+      except Exception as e:
+          await ctx.send(f"❌ Error: {str(e)}")
 
   @commands.command()
   async def pause(self, ctx):
