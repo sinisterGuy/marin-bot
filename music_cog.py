@@ -111,7 +111,7 @@ class music_cog(commands.Cog):
         embed.set_thumbnail(url=song['thumbnail'])
     await ctx.send(embed=embed)
 
-  def play_next(self, ctx, error=None):
+  async def play_next(self, ctx, error=None):
     if error:
       print(f"Player error: {error}")
     #vc=ctx.voice_client
