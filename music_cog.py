@@ -235,36 +235,36 @@ class music_cog(commands.Cog):
       await ctx.send('Okay, waise bhi khas maza nhi aya.')
 
   @commands.command(aliases=["p"])
-    async def play(self, ctx, *, query):
-        try:
-            # Initial checks
-            if not ctx.author.voice:
-                return await ctx.send("Join a voice channel first!")
-            
-            # Connection handling
-            msg = await ctx.send("🔍 Preparing your song...")
-            vc = await self.ensure_voice(ctx)
-            if not vc:
-                return
-                
-            # Search or direct URL
-            if "youtube.com/watch" in query or "youtu.be/" in query:
-                song = {'source': query, 'title': "Direct URL", 'artist': "", 'duration': 0, 'thumbnail': ""}
-            else:
-                song = await self.search_yt(query)
-                if not song:
-                    return await msg.edit(content="⚠ Couldn't access this video")
-            
-            # Queue management
-            self.music_queue.append([song, ctx.author.voice.channel])
-            await msg.edit(content=f"🎵 Added to queue: {song['title']}")
-            
-            if not self.is_playing:
-                await self.play_music(ctx)
-                
-        except Exception as e:
-            await ctx.send(f"❌ Error: {str(e)}")
-            print(f"Command error: {e}")
+  async def play(self, ctx, *, query):
+      try:
+          # Initial checks
+          if not ctx.author.voice:
+              return await ctx.send("Join a voice channel first!")
+          
+          # Connection handling
+          msg = await ctx.send("🔍 Preparing your song...")
+          vc = await self.ensure_voice(ctx)
+          if not vc:
+              return
+              
+          # Search or direct URL
+          if "youtube.com/watch" in query or "youtu.be/" in query:
+              song = {'source': query, 'title': "Direct URL", 'artist': "", 'duration': 0, 'thumbnail': ""}
+          else:
+              song = await self.search_yt(query)
+              if not song:
+                  return await msg.edit(content="⚠ Couldn't access this video")
+          
+          # Queue management
+          self.music_queue.append([song, ctx.author.voice.channel])
+          await msg.edit(content=f"🎵 Added to queue: {song['title']}")
+          
+          if not self.is_playing:
+              await self.play_music(ctx)
+              
+      except Exception as e:
+          await ctx.send(f"❌ Error: {str(e)}")
+          print(f"Command error: {e}")
 
   @commands.command()
   async def pause(self, ctx):
