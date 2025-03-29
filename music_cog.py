@@ -15,33 +15,33 @@ class CookieManager:
       self.last_refresh = None
       
   def get_valid_cookies(self):
-      """Get cookies if they're fresh, otherwise refresh"""
-      if not self._cookies_need_refresh():
-          return True
-          
-      try:
-          # Get cookies from Chrome (change to 'firefox' if needed)
-          cookies = browser_cookie3.chrome(domain_name='youtube.com')
-          
-          # Write in Netscape format
-          with open(self.cookie_file, 'w') as f:
-              f.write("# Netscape HTTP Cookie File\n")
-              for cookie in cookies:
-                  if 'youtube' in cookie.domain:
-                      f.write(
-                          f"{cookie.domain}\t"
-                          f{"TRUE" if cookie.subdomain else "FALSE"}\t"
-                          f{cookie.path}\t"
-                          f{"TRUE" if cookie.secure else "FALSE"}\t"
-                          f{int(cookie.expires or time.time() + 3600)}\t"
-                          f{cookie.name}\t"
-                          f{cookie.value}\n"
-                      )
-          self.last_refresh = datetime.now()
-          return True
-      except Exception as e:
-          print(f"Cookie refresh failed: {e}")
-          return False
+    """Get cookies if they're fresh, otherwise refresh"""
+    if not self._cookies_need_refresh():
+        return True
+        
+    try:
+        # Get cookies from Chrome (change to 'firefox' if needed)
+        cookies = browser_cookie3.chrome(domain_name='youtube.com')
+        
+        # Write in Netscape format
+        with open(self.cookie_file, 'w') as f:
+            f.write("# Netscape HTTP Cookie File\n")
+            for cookie in cookies:
+                if 'youtube' in cookie.domain:
+                    f.write(
+                        f"{cookie.domain}\t"
+                        f"{'TRUE' if cookie.subdomain else 'FALSE'}\t"
+                        f"{cookie.path}\t"
+                        f"{'TRUE' if cookie.secure else 'FALSE'}\t"
+                        f"{int(cookie.expires or time.time() + 3600)}\t"
+                        f"{cookie.name}\t"
+                        f"{cookie.value}\n"
+                    )
+        self.last_refresh = datetime.now()
+        return True
+    except Exception as e:
+        print(f"Cookie refresh failed: {e}")
+        return False
           
   def _cookies_need_refresh(self):
       """Check if cookies are older than 6 hours"""
