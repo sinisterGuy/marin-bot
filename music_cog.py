@@ -379,63 +379,63 @@ class music_cog(commands.Cog):
     await ctx.send('Playing your song now.')
     """
   @commands.command(aliases=["p"], help="Plays a selected song from youtube")
-async def play(self, ctx, *args):
-    query = " ".join(args)
-    if ctx.author.voice is None:
-        await ctx.send('Baka! Join a voice channel first!')
-        return
-    
-    voice_channel = ctx.author.voice.channel
-    if ctx.voice_client is None:
-        await voice_channel.connect()
-    
-    # Refresh cookies if needed
-    if not self.cookie_manager.get_valid_cookies():
-        await ctx.send("⚠ Cookie refresh failed, trying fallback method...")
-    
-    # Initial loading message
-    msg = await ctx.send("🔍 Searching... (This may take a moment)")
+  async def play(self, ctx, *args):
+      query = " ".join(args)
+      if ctx.author.voice is None:
+          await ctx.send('Baka! Join a voice channel first!')
+          return
+      
+      voice_channel = ctx.author.voice.channel
+      if ctx.voice_client is None:
+          await voice_channel.connect()
+      
+      # Refresh cookies if needed
+      if not self.cookie_manager.get_valid_cookies():
+          await ctx.send("⚠ Cookie refresh failed, trying fallback method...")
+      
+      # Initial loading message
+      msg = await ctx.send("🔍 Searching... (This may take a moment)")
 
-    try:
-        # First try with cookies
-        song = await self.search_yt(query)
-        
-        # If failed due to auth, try once without cookies
-        if not song:
-            await msg.edit(content="⚠ Retrying without cookies...")
-            temp_options = self.YDL_OPTIONS.copy()
-            temp_options.pop('cookiefile', None)
-            song = await self.search_yt(query)
+      try:
+          # First try with cookies
+          song = await self.search_yt(query)
+          
+          # If failed due to auth, try once without cookies
+          if not song:
+              await msg.edit(content="⚠ Retrying without cookies...")
+              temp_options = self.YDL_OPTIONS.copy()
+              temp_options.pop('cookiefile', None)
+              song = await self.search_yt(query)
 
-        if not song:
-            return await msg.edit(content="❌ Couldn't find that song. Try a different query.")
+          if not song:
+              return await msg.edit(content="❌ Couldn't find that song. Try a different query.")
 
-        # Remove the duplicate search_yt call that was here before
-        
-        # Display song info
-        embed = discord.Embed(
-            title="🎶 Song Added to Queue",
-            description=f"**Title:** {song['title']}\n**Artist:** {song['artist']}\n**Duration:** {self.format_duration(song['duration'])}",
-            color=0x00ff00,
-        )
-        if song['thumbnail']:
-            embed.set_thumbnail(url=song['thumbnail'])
-        await ctx.send(embed=embed)
-        
-        self.music_queue.append([song, voice_channel])
-                    
-        if not self.is_playing:
-            await self.play_music(ctx)
+          # Remove the duplicate search_yt call that was here before
+          
+          # Display song info
+          embed = discord.Embed(
+              title="🎶 Song Added to Queue",
+              description=f"**Title:** {song['title']}\n**Artist:** {song['artist']}\n**Duration:** {self.format_duration(song['duration'])}",
+              color=0x00ff00,
+          )
+          if song['thumbnail']:
+              embed.set_thumbnail(url=song['thumbnail'])
+          await ctx.send(embed=embed)
+          
+          self.music_queue.append([song, voice_channel])
+                      
+          if not self.is_playing:
+              await self.play_music(ctx)
 
-    except Exception as e:
-        print(f"Error in play command: {e}")
-        error=discord.Embed(
-            title="Error", 
-            description="Could not download the song.\nPlease try again later.", 
-            color=0xFF0000
-        )
-        error.set_footer(text="Ohm Audio", icon_url="https://media.discordapp.net/attachments/847649142834593803/881308944159617104/Ohm.png")
-        await ctx.send(embed=error)
+      except Exception as e:
+          print(f"Error in play command: {e}")
+          error=discord.Embed(
+              title="Error", 
+              description="Could not download the song.\nPlease try again later.", 
+              color=0xFF0000
+          )
+          error.set_footer(text="Ohm Audio", icon_url="https://media.discordapp.net/attachments/847649142834593803/881308944159617104/Ohm.png")
+          await ctx.send(embed=error)
 
   @commands.command()
   async def pause(self, ctx):
