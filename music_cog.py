@@ -63,7 +63,7 @@ class music_cog(commands.Cog):
   #   print(f"Audio source URL: {info['formats'][0]['url']}")  # Debug statement
   #   return {'source': info['formats'][0]['url'], 'title': info['title']}
 
-  def search_yt(self, item):
+  async def search_yt(self, item):
     with youtube_dl.YoutubeDL(self.YDL_OPTIONS) as ydl:
         try:
             #info = ydl.extract_info(f"ytsearch:{item}", download=False)
