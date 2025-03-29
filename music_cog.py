@@ -68,9 +68,9 @@ class music_cog(commands.Cog):
         try:
             #info = ydl.extract_info(f"ytsearch:{item}", download=False)
             def sync_search():
-                with youtube_dl.YoutubeDL(self.YDL_OPTIONS) as ydl:
-                  return ydl.extract_info(f"ytsearch:{item}", download=False)
-              info = await asyncio.to_thread(sync_search) 
+              with youtube_dl.YoutubeDL(self.YDL_OPTIONS) as ydl:
+                return ydl.extract_info(f"ytsearch:{item}", download=False)
+            info = await asyncio.to_thread(sync_search) 
             print(f"Info dictionary: {info}")  # Debug statement
             if 'entries' in info:
                 info = info['entries'][0]
