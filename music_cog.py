@@ -17,6 +17,7 @@ class music_cog(commands.Cog):
     # self.YDL_OPTIONS = {'format': 'bestaudio', 'noplaylist':'True'}
     self.YDL_OPTIONS = {
         'format': 'bestaudio/best',
+        'cookiefile': 'cookies.txt',
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
